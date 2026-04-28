@@ -88,38 +88,189 @@ The `/weekly-rhythm` skill is a pure operational playbook (Mon/Wed/Fri/biweekly/
 Top-down: deliverability → targeting → copy/offer → speed-to-lead. Stops at
 the first failed layer because layers below a failure are noise.
 
-## Architecture
+## Architecture — pipeline overview
 
+```mermaid
+flowchart TD
+    A[Natural-language input<br/>'find me 200 X for client_a'] --> B[Phase 1: Parse<br/>Haiku — extract client/niche/target/geo]
+    B --> C[Phase 2: Cascade discovery]
+    C --> C1[Blitz keyword]
+    C --> C2[Lookalike]
+    C --> C3[Firecrawl directories]
+    C --> C4[Serper Maps geo-grid]
+    C1 & C2 & C3 & C4 --> D[Phase 3: Master DB dedup<br/>200K+ row SQLite]
+    D --> E[Phase 4: 13-step enrichment<br/>free → paid waterfall]
+    E --> F[Phase 5: Verification<br/>MillionVerifier + BounceBan early-exit]
+    F --> G[Phase 6: Quality<br/>LLM niche-fit + title red-flag filter]
+    G --> H[Phase 7: Copy generation<br/>Opus 4 + Nowoslawski subject patterns]
+    H --> I[Phase 8: Ship gate<br/>18-point copy gate + 10-component offer scorecard]
+    I -->|pass ≥14/18| J[Phase 9: DRAFTED Smartlead campaign<br/>mature-mailbox-only attach]
+    I -->|fail| H
+    J --> K[Human review<br/>operator clicks Start in Smartlead UI]
+
+    style A fill:#0d1117,color:#fff,stroke:#58a6ff
+    style J fill:#1a472a,color:#fff,stroke:#3fb950
+    style K fill:#3a2c0f,color:#fff,stroke:#d29922
 ```
-   Natural-language input
-            │
-            ▼
-   Phase 1: Parse (Haiku — extract client, niche, target, geo)
-            │
-            ▼
-   Phase 2: Cascade discovery
-            (Blitz keyword → Lookalike → Firecrawl → Maps geo-grid)
-            │
-            ▼
-   Phase 3: Master DB dedup (no enrichment $ on known prospects)
-            │
-            ▼
-   Phase 4: 13-step enrichment cascade (free → paid)
-            │
-            ▼
-   Phase 5: Email verification (MillionVerifier + BounceBan early-exit)
-            │
-            ▼
-   Phase 6: Quality (LLM niche-fit + title red-flag filter + scoring)
-            │
-            ▼
-   Phase 7: Copy generation (Opus + Nowoslawski subject patterns)
-            │
-            ▼
-   Phase 8: Ship gate (18-pt copy quality gate + 10-pt offer scorecard)
-            │
-            ▼
-   Phase 9: DRAFTED Smartlead launch (mature-mailbox-only attach)
+
+## 13-step enrichment cascade
+
+Free paths exhaust before any paid call fires. ~60% of leads resolve on free paths alone.
+
+```mermaid
+flowchart LR
+    L[Lead] --> S1{1. MX check}
+    S1 -->|live| S2{2. Domain memory<br/>known pattern?}
+    S1 -->|dead| X[skip]
+    S2 -->|hit| OK1[email]
+    S2 -->|miss| S3{3. Reverse phone}
+    S3 -->|hit| OK1
+    S3 -->|miss| S4{4. Reverse email}
+    S4 -->|hit| OK1
+    S4 -->|miss| S5{5. Maps email}
+    S5 -->|hit| OK1
+    S5 -->|miss| S6{6. Direct contact}
+    S6 -->|hit| OK1
+    S6 -->|miss| S7{7. Site scrape}
+    S7 -->|hit| OK1
+    S7 -->|miss| S8{8. Owner search<br/>SERP + Haiku}
+    S8 -->|hit| OK1
+
+    S8 -->|miss| P9{9. Smart pattern<br/>+ MV verify}
+    P9 -->|hit| OK2[email]
+    P9 -->|miss| P10{10. Icypeas<br/>reverse}
+    P10 -->|hit| OK2
+    P10 -->|miss| P11{11. Icypeas<br/>name+domain}
+    P11 -->|hit| OK2
+    P11 -->|miss| P12{12. Icypeas<br/>domain-only}
+    P12 -->|hit| OK2
+    P12 -->|miss| P13{13. Catch-all<br/>firstname@}
+    P13 --> OK2
+
+    OK1 -.->|FREE PATH<br/>~60% of leads| END[verified email]
+    OK2 -.->|PAID PATH<br/>~40% of leads| END
+
+    style OK1 fill:#1a472a,color:#fff,stroke:#3fb950
+    style OK2 fill:#3a2c0f,color:#fff,stroke:#d29922
+    style END fill:#0d1117,color:#fff,stroke:#58a6ff
+```
+
+## LLM cost router
+
+92% of operations land on the cheap model. Heavy work routes to Opus only when the cost premium is justified by output quality.
+
+```mermaid
+flowchart LR
+    REQ[LLM request] --> R{llm_router.py<br/>route by task type}
+    R -->|classification<br/>parsing<br/>niche-fit<br/>title red-flag| K[Kimi K2.6<br/>$0.001/M tokens]
+    R -->|copy generation<br/>deep research<br/>compound briefs<br/>reply drafts| O[Claude Opus 4<br/>$15/M tokens]
+
+    K -.->|~92% of calls| TOTAL[Combined: ~$130/mo]
+    O -.->|~8% of calls| TOTAL
+
+    style K fill:#1a472a,color:#fff,stroke:#3fb950
+    style O fill:#3a2c0f,color:#fff,stroke:#d29922
+    style TOTAL fill:#0d1117,color:#fff,stroke:#58a6ff
+```
+
+## Multi-tenant data isolation
+
+Three clients share infrastructure but never share leads, mailboxes, copy banks, or DBs.
+
+```mermaid
+flowchart TB
+    subgraph FORGE[Shared Framework]
+        F1[forge.py + f.py dispatcher]
+        F2[13-step enrichment cascade]
+        F3[Copy quality gate]
+        F4[Mailbox helpers]
+        F5[LLM router]
+    end
+
+    subgraph CLIENT_A[Client A workspace]
+        A1[copy_banks_a.py — private]
+        A2[campaigns_a — Smartlead]
+        A3[mailboxes_a — Inboxkit]
+        A4[leads tagged client=a]
+    end
+
+    subgraph CLIENT_B[Client B workspace]
+        B1[copy_banks_b.py — private]
+        B2[campaigns_b — Smartlead]
+        B3[mailboxes_b — Inboxkit]
+        B4[leads tagged client=b]
+    end
+
+    subgraph CLIENT_C[Client C workspace]
+        C1[copy_banks_c.py — private]
+        C2[campaigns_c — Smartlead]
+        C3[mailboxes_c — Inboxkit]
+        C4[leads tagged client=c]
+    end
+
+    subgraph DB[Shared SQLite — 200K+ rows]
+        D1[(leads<br/>client column)]
+        D2[(meetings<br/>client column)]
+    end
+
+    FORGE --> CLIENT_A
+    FORGE --> CLIENT_B
+    FORGE --> CLIENT_C
+    CLIENT_A --> D1
+    CLIENT_B --> D1
+    CLIENT_C --> D1
+    CLIENT_A --> D2
+    CLIENT_B --> D2
+    CLIENT_C --> D2
+
+    style FORGE fill:#0d1117,color:#fff,stroke:#58a6ff
+    style DB fill:#3a2c0f,color:#fff,stroke:#d29922
+```
+
+## Deployment architecture
+
+```mermaid
+flowchart TB
+    subgraph LOCAL[Operator]
+        PHONE[iPhone — Telegram + Termius SSH]
+        MAC[Mac — Claude Code CLI for development]
+    end
+
+    subgraph TS[Tailscale private VPN]
+        DROPLET[forge-prod droplet<br/>DigitalOcean • 2 vCPU / 4 GB / $25 mo]
+    end
+
+    subgraph SERVICES[Operator-managed APIs]
+        SL[Smartlead<br/>email infra]
+        IK[Inboxkit<br/>mailbox provisioning]
+        BL[Blitz / Hunter / Icypeas<br/>contact enrichment]
+        MV[MillionVerifier<br/>email verification]
+        ANT[Anthropic API<br/>Claude Opus 4]
+        KIMI[Moonshot API<br/>Kimi K2.6]
+        SERP[Serper / Firecrawl<br/>web search + scrape]
+        PUSH[Pushover<br/>phone alerts]
+    end
+
+    subgraph DROPLET_INTERNALS[On the droplet]
+        FORGE[Forge — Python 3.13]
+        SYSTEMD[systemd timers<br/>autopilot daily noon ET<br/>client_reports Fri 9am ET]
+        HERMES[Hermes Agent<br/>Telegram bot gateway]
+        DBLOCAL[(master_leads.db<br/>WAL mode)]
+    end
+
+    PHONE --> TS
+    MAC --> TS
+    TS --> DROPLET
+    HERMES <-->|natural-language ops| PHONE
+    FORGE <--> SERVICES
+    SYSTEMD --> FORGE
+    HERMES --> FORGE
+    FORGE <--> DBLOCAL
+    SYSTEMD -.->|alerts| PUSH
+
+    style DROPLET fill:#0d1117,color:#fff,stroke:#58a6ff
+    style HERMES fill:#1a472a,color:#fff,stroke:#3fb950
+    style PHONE fill:#3a2c0f,color:#fff,stroke:#d29922
 ```
 
 ## Stack
