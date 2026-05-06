@@ -260,6 +260,14 @@ flowchart TB
 - **Deploy:** DigitalOcean droplet + systemd timers + Tailscale
 - **Conversational layer:** Hermes Agent for Telegram-bot ops
 
+## See it in action
+
+Concrete walkthroughs of the framework's key mechanisms (synthetic data, real architecture):
+
+- [Sample lead through the 13-step cascade](examples/sample_lead_walkthrough.md) — fictional lead routed through every step, showing what each one tries and how the cascade short-circuits on hit
+- [Copy quality gate worked examples](examples/copy_quality_gate_examples.md) — 3 fictional emails through the 18-point gate (PASS / FAIL / borderline), with full score breakdowns
+- [Architecture decisions](docs/architecture_decisions.md) — the WHY behind 5 key design choices, with the failure modes each one prevents
+
 ## Repository structure
 
 ```
