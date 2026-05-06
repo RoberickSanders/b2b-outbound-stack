@@ -1,35 +1,26 @@
-# Agency OS — production cold-email infrastructure framework
+# Agency OS — Production B2B Outbound Infrastructure Framework
 
-Open-source framework for running multi-client B2B cold-email infrastructure.
-Built and operated end-to-end on Python 3.13 + Claude Code skills.
+Open-source framework for production-grade B2B outbound operations. Built and operated end-to-end on Python 3.13 + Claude Code skills.
 
-> **Status:** runs in production for multiple clients. Public version is
-> sanitized of client data, copy banks, and proprietary patterns. The
-> framework + architecture are open-sourced as a portfolio artifact.
+> **Status:** runs in production. Public version is sanitized of client data, copy banks, and proprietary patterns. The framework + architecture are open-sourced as a portfolio artifact.
 
 ## What this is
 
-A complete operational stack for B2B outbound — discovery → enrichment →
-verification → copy generation → DRAFTED Smartlead campaign — with
-multi-tenant data isolation, safety rules codified in code, and an LLM
-cost router that keeps spend at ~$130/mo for the LLM layer.
+A complete operational stack for B2B outbound — discovery → enrichment → verification → copy generation → DRAFTED Smartlead campaign — with multi-tenant data isolation, safety rules codified in code, and an LLM cost router.
 
-## What's interesting from a GTM Engineering standpoint
+## Notable components
 
 ### 1. LLM cost router (`llm_router.py`)
-Routes light tasks (classification, parsing) to Kimi K2.6 ($0.001/M tokens)
-and heavy tasks (copy generation, deep research) to Claude Opus 4
-($15/M tokens). ~92% of operations land on the cheap model.
+Routes light tasks (classification, parsing) to a cheap model and heavy tasks (copy generation, deep research) to a flagship model.
 
 ### 2. 18-point copy quality gate (`tools/copy_quality_gate.py`)
 Programmatic rubric every cold email passes before ship:
-- Em-dash detection (cold-email "AI tell")
+- Em-dash detection
 - Anti-pattern matching ("we help", "I hope this finds you well")
 - Spintax structure validation
-- Subject-pattern format detection (colleague_internal,
-  vendor_scheduling, customer_inquiry)
+- Subject-pattern format detection (colleague_internal, vendor_scheduling, customer_inquiry)
 - Single-CTA enforcement
-- 14/18 minimum score required to ship
+- Minimum score required to ship
 
 ### 3. 13-step enrichment cascade (`tools/forge_enrich.py`)
 Free paths first, paid paths only when free fails:
@@ -37,74 +28,62 @@ Free paths first, paid paths only when free fails:
 ```
 FREE (steps 1-8):
   1. MX pre-check               (skip dead domains)
-  2. Domain memory               (known winning patterns cached)
+  2. Domain memory               (known patterns cached)
   3. Reverse phone lookup        (phone → owner → email)
   4. Reverse email lookup        (info@ → who manages it → personal email)
   5. Google Maps email
   6. Direct contact API
   7. Website scraping
-  8. Owner search via SERP + Haiku
+  8. Owner search via SERP + LLM
 
 PAID (steps 9-13, only if free fails):
   9. Smart-pattern guess + verify
-  10. Reverse-email-finder (Icypeas)
+  10. Reverse-email-finder
   11. Name + domain finder
   12. Domain-only finder
   13. Catch-all acceptance
 ```
-
-~60% of leads never touch a paid endpoint.
 
 ### 4. Code-enforced safety rules (`mailbox_helpers.py`)
 The 14-day mailbox maturity rule lives at the code layer, not in docs:
 
 ```python
 def is_mature(acct: dict, min_age_days: int = 14, min_warmup_pct: int = 100):
-    """Hard rule: mailbox must be at least N days old AND at min reputation.
-    Both required. Rule was forced into code after 2 production incidents
-    where 'reputation 100%' fresh mailboxes burned in cold campaigns."""
+    """Hard rule: mailbox must be at least N days old AND at min reputation."""
     return _age_days(acct) >= min_age_days and _warmup_pct(acct) >= min_warmup_pct
 ```
 
-Wrappers around `Smartlead.attach_email_account()` route through this so
-no campaign can attach an unmature mailbox in production.
+Wrappers around `Smartlead.attach_email_account()` route through this so no campaign can attach an unmature mailbox in production.
 
 ### 5. Compounding-data feedback loop (`tools/forge_compound.py`)
-After every campaign cycle, joins the leads + meetings tables, identifies
-which industries, titles, and geos converted, and writes a markdown brief
-that feeds the NEXT campaign's prompt as context. Without this, every new
-campaign starts blind.
+After every campaign cycle, joins the leads + meetings tables, identifies which industries, titles, and geos converted, and writes a markdown brief that feeds the next campaign's prompt as context.
 
 ### 6. Subagent dispatch for parallel research
-The `/lookalike-research` slash command dispatches N parallel
-Claude Code subagents — each independently researches lookalike companies
-matching a signal profile, then results are aggregated, deduplicated, and
-ingested. See `tools/forge_lookalike_research.py` + `.claude/commands/lookalike-research.md`.
+The `/lookalike-research` slash command dispatches N parallel Claude Code subagents — each independently researches lookalike companies matching a signal profile, then results are aggregated, deduplicated, and ingested. See `tools/forge_lookalike_research.py` + `.claude/commands/lookalike-research.md`.
 
 ### 7. Operational rhythm codified as a slash command
-The `/weekly-rhythm` skill is a pure operational playbook (Mon/Wed/Fri/biweekly/monthly/quarterly cadences) with no scripts. The thesis: tooling without rhythm doesn't compound.
+The `/weekly-rhythm` skill is a pure operational playbook (Mon/Wed/Fri/biweekly/monthly/quarterly cadences) with no scripts.
 
 ### 8. 4-point campaign diagnostic (`/diagnose-campaign`)
-Top-down: deliverability → targeting → copy/offer → speed-to-lead. Stops at
-the first failed layer because layers below a failure are noise.
+Top-down: deliverability → targeting → copy/offer → speed-to-lead. Stops at the first failed layer because layers below a failure are noise.
 
 ## Architecture — pipeline overview
 
 ```mermaid
 flowchart TD
-    A[Natural-language input<br/>'find me 200 X for client_a'] --> B[Phase 1: Parse<br/>Haiku — extract client/niche/target/geo]
+    A[Natural-language input] --> B[Phase 1: Parse<br/>Extract client/niche/target/geo]
     B --> C[Phase 2: Cascade discovery]
     C --> C1[Blitz keyword]
     C --> C2[Lookalike]
     C --> C3[Firecrawl directories]
     C --> C4[Serper Maps geo-grid]
-    C1 & C2 & C3 & C4 --> D[Phase 3: Master DB dedup<br/>200K+ row SQLite]
+    C1 & C2 & C3 & C4 --> D[Phase 3: Master DB dedup<br/>SQLite]
     D --> E[Phase 4: 13-step enrichment<br/>free → paid waterfall]
     E --> F[Phase 5: Verification<br/>MillionVerifier + BounceBan early-exit]
     F --> G[Phase 6: Quality<br/>LLM niche-fit + title red-flag filter]
-    G --> H[Phase 7: Copy generation<br/>Opus 4 + Nowoslawski subject patterns]
+    G --> H[Phase 7: Copy generation<br/>flagship LLM + subject patterns]
     H --> I[Phase 8: Ship gate<br/>18-point copy gate + 10-component offer scorecard]
-    I -->|pass ≥14/18| J[Phase 9: DRAFTED Smartlead campaign<br/>mature-mailbox-only attach]
+    I -->|pass| J[Phase 9: DRAFTED Smartlead campaign<br/>mature-mailbox-only attach]
     I -->|fail| H
     J --> K[Human review<br/>operator clicks Start in Smartlead UI]
 
@@ -115,7 +94,7 @@ flowchart TD
 
 ## 13-step enrichment cascade
 
-Free paths exhaust before any paid call fires. ~60% of leads resolve on free paths alone.
+Free paths exhaust before any paid call fires.
 
 ```mermaid
 flowchart LR
@@ -133,22 +112,22 @@ flowchart LR
     S6 -->|hit| OK1
     S6 -->|miss| S7{7. Site scrape}
     S7 -->|hit| OK1
-    S7 -->|miss| S8{8. Owner search<br/>SERP + Haiku}
+    S7 -->|miss| S8{8. Owner search<br/>SERP + LLM}
     S8 -->|hit| OK1
 
     S8 -->|miss| P9{9. Smart pattern<br/>+ MV verify}
     P9 -->|hit| OK2[email]
-    P9 -->|miss| P10{10. Icypeas<br/>reverse}
+    P9 -->|miss| P10{10. Reverse-email-finder}
     P10 -->|hit| OK2
-    P10 -->|miss| P11{11. Icypeas<br/>name+domain}
+    P10 -->|miss| P11{11. Name+domain}
     P11 -->|hit| OK2
-    P11 -->|miss| P12{12. Icypeas<br/>domain-only}
+    P11 -->|miss| P12{12. Domain-only}
     P12 -->|hit| OK2
     P12 -->|miss| P13{13. Catch-all<br/>firstname@}
     P13 --> OK2
 
-    OK1 -.->|FREE PATH<br/>~60% of leads| END[verified email]
-    OK2 -.->|PAID PATH<br/>~40% of leads| END
+    OK1 -.->|FREE PATH| END[verified email]
+    OK2 -.->|PAID PATH| END
 
     style OK1 fill:#1a472a,color:#fff,stroke:#3fb950
     style OK2 fill:#3a2c0f,color:#fff,stroke:#d29922
@@ -157,25 +136,21 @@ flowchart LR
 
 ## LLM cost router
 
-92% of operations land on the cheap model. Heavy work routes to Opus only when the cost premium is justified by output quality.
+Heavy work routes to flagship only when the cost premium is justified by output quality.
 
 ```mermaid
 flowchart LR
     REQ[LLM request] --> R{llm_router.py<br/>route by task type}
-    R -->|classification<br/>parsing<br/>niche-fit<br/>title red-flag| K[Kimi K2.6<br/>$0.001/M tokens]
-    R -->|copy generation<br/>deep research<br/>compound briefs<br/>reply drafts| O[Claude Opus 4<br/>$15/M tokens]
-
-    K -.->|~92% of calls| TOTAL[Combined: ~$130/mo]
-    O -.->|~8% of calls| TOTAL
+    R -->|classification<br/>parsing<br/>niche-fit<br/>title red-flag| K[Cheap model]
+    R -->|copy generation<br/>deep research<br/>compound briefs<br/>reply drafts| O[Flagship model]
 
     style K fill:#1a472a,color:#fff,stroke:#3fb950
     style O fill:#3a2c0f,color:#fff,stroke:#d29922
-    style TOTAL fill:#0d1117,color:#fff,stroke:#58a6ff
 ```
 
 ## Multi-tenant data isolation
 
-Three clients share infrastructure but never share leads, mailboxes, copy banks, or DBs.
+Multiple clients share infrastructure but never share leads, mailboxes, copy banks, or DBs.
 
 ```mermaid
 flowchart TB
@@ -208,7 +183,7 @@ flowchart TB
         C4[leads tagged client=c]
     end
 
-    subgraph DB[Shared SQLite — 200K+ rows]
+    subgraph DB[Shared SQLite]
         D1[(leads<br/>client column)]
         D2[(meetings<br/>client column)]
     end
@@ -232,12 +207,12 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph LOCAL[Operator]
-        PHONE[iPhone — Telegram + Termius SSH]
+        PHONE[iPhone — Telegram + SSH]
         MAC[Mac — Claude Code CLI for development]
     end
 
     subgraph TS[Tailscale private VPN]
-        DROPLET[forge-prod droplet<br/>DigitalOcean • 2 vCPU / 4 GB / $25 mo]
+        DROPLET[forge-prod droplet<br/>DigitalOcean]
     end
 
     subgraph SERVICES[Operator-managed APIs]
@@ -245,15 +220,15 @@ flowchart TB
         IK[Inboxkit<br/>mailbox provisioning]
         BL[Blitz / Hunter / Icypeas<br/>contact enrichment]
         MV[MillionVerifier<br/>email verification]
-        ANT[Anthropic API<br/>Claude Opus 4]
-        KIMI[Moonshot API<br/>Kimi K2.6]
+        ANT[Anthropic API<br/>flagship LLM]
+        KIMI[Moonshot API<br/>cheap LLM]
         SERP[Serper / Firecrawl<br/>web search + scrape]
         PUSH[Pushover<br/>phone alerts]
     end
 
     subgraph DROPLET_INTERNALS[On the droplet]
         FORGE[Forge — Python 3.13]
-        SYSTEMD[systemd timers<br/>autopilot daily noon ET<br/>client_reports Fri 9am ET]
+        SYSTEMD[systemd timers<br/>autopilot daily<br/>client_reports weekly]
         HERMES[Hermes Agent<br/>Telegram bot gateway]
         DBLOCAL[(master_leads.db<br/>WAL mode)]
     end
@@ -276,31 +251,21 @@ flowchart TB
 ## Stack
 
 - **Language:** Python 3.13
-- **Database:** SQLite (WAL mode, 200K+ rows)
-- **LLMs:** Anthropic Claude Opus 4 (heavy) + Moonshot Kimi K2.6 (light)
+- **Database:** SQLite (WAL mode)
+- **LLMs:** Anthropic Claude (heavy) + Moonshot Kimi (light)
 - **Email infra:** Smartlead, Inboxkit, MillionVerifier
 - **Discovery:** Blitz, AI Ark, Firecrawl, Serper Maps
 - **Enrichment:** Hunter, Icypeas, MillionVerifier
 - **Subagents:** Claude Code Task tool
-- **Deploy:** DigitalOcean droplet ($25/mo) + systemd timers + Tailscale
-- **Conversational layer:** Hermes Agent (Nous Research) for Telegram-bot ops
-
-## Costs at production
-
-For a 200-lead campaign:
-- LLM: ~$2-4 (router keeps 92% on cheap model)
-- Email finder: ~$0-3 (free cascade hits 60%)
-- Verification: ~$0.50
-- **~$5-10 per 200-lead campaign**
-
-Equivalent enterprise stack (Outreach + Clay + ZoomInfo) starts at ~$8K/mo.
+- **Deploy:** DigitalOcean droplet + systemd timers + Tailscale
+- **Conversational layer:** Hermes Agent for Telegram-bot ops
 
 ## Repository structure
 
 ```
 agency-os/
 ├── README.md                            (this file)
-├── CLAUDE.md                            operating doctrine — read first
+├── CLAUDE.md                            operating doctrine
 ├── HERMES.md                            Hermes Agent integration bridge
 ├── COOKBOOK.md                          goal-oriented "I want to ___, run this"
 ├── SOP.md                               operational policies
@@ -308,7 +273,7 @@ agency-os/
 ├── forge.py                             top-level orchestrator
 ├── f.py                                 unified CLI dispatcher (50+ subcommands)
 ├── doctor.py                            7-category health check
-├── llm_router.py                        cost-aware LLM routing (Kimi/Opus)
+├── llm_router.py                        cost-aware LLM routing
 ├── mailbox_helpers.py                   14-day maturity rule (code-enforced)
 ├── master_db.py                         SQLite master leads + meetings
 ├── enrichment.py                        email enrichment waterfall
@@ -316,7 +281,7 @@ agency-os/
 ├── tools/
 │   ├── forge_compound.py                winning-angles miner from past meetings
 │   ├── forge_lookalike_research.py     subagent-dispatch lookalike (3-stage)
-│   ├── forge_auto_research.py          autonomous loop (Karpathy-style)
+│   ├── forge_auto_research.py          autonomous loop
 │   ├── competitor_engagers.py           LinkedIn engager harvest from competitors
 │   ├── list_quality_scorecard.py        8-dim list grading (A-F before send)
 │   ├── copy_quality_gate.py             18-point ship gate
@@ -326,7 +291,7 @@ agency-os/
 │   ├── forge_enrich.py                  unified 13-step cascade
 │   └── ...                              25+ more showcase tools
 └── .claude/commands/
-    ├── diagnose-campaign.md             4-point Oliverify diagnostic
+    ├── diagnose-campaign.md             4-point diagnostic
     ├── lookalike-research.md            stage-2 subagent dispatcher
     └── weekly-rhythm.md                 Mon/Wed/Fri operational cadence
 ```
@@ -343,13 +308,4 @@ agency-os/
 
 MIT — use it, fork it, adapt it.
 
-The framework is open-source. Specific operator implementations
-(copy banks, client data, trained patterns) are proprietary to their owners.
-
-## Author
-
-Built solo as an end-to-end production system. The code here is the framework
-layer; the agency layer (clients, copy, data) lives in a separate private repo.
-
-If you're a hiring manager reading this — yes, this is real, deployed, and in
-daily operation. Walkthrough video + live-demo on request.
+The framework is open-source. Specific operator implementations (copy banks, client data, trained patterns) are proprietary to their owners.
