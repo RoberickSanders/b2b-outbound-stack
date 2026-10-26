@@ -33,3 +33,11 @@ output/
 # OS
 .DS_Store
 Thumbs.db
+
+# treg / local secrets
+.secrets/
+*treg_token*
+pre-niche-fit-cache/
+
+# local env (model ids etc.)
+.env.local

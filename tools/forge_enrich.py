@@ -8,7 +8,16 @@ verified lead out of them using ALL available tools in optimal order.
 This replaces the scattered approach where each tool ran separately.
 One function, all tools, optimal routing, cost-controlled.
 
-Flow per company:
+DEFAULT CASCADE (since 2026-10-26): fit gate + free steps + treg.
+  The fit-gate judge model is set by env FIT_GATE_MODEL (unset -> llm_classify fallback, or no gate).
+See tools/forge_treg_cascade.py. Blitz, AI Ark, Icypeas and MillionVerifier are
+no longer used unless --legacy-providers is passed (off by default).
+
+  python3 tools/forge_enrich.py --input c.csv --icp "med spas in Tampa FL" --budget 0.50
+  flags: --budget (default 0.50), --per-call-cap (0.02), --fit-skip-below (0.2),
+         --fit-threshold (0.5), --no-fit-gate, --legacy-providers, --dry-run
+
+LEGACY flow per company (--legacy-providers):
   1. MX pre-check (FREE) → skip dead domains
   2. Domain memory → try known winning pattern first (FREE)
   3. Blitz waterfall → try if LinkedIn-heavy (FREE)
@@ -78,6 +87,9 @@ ICYPEAS_KEY = os.environ.get("ICYPEAS_API_KEY", "")
 ICYPEAS_SECRET = os.environ.get("ICYPEAS_API_SECRET", "")
 BLITZ_KEY = os.environ.get("BLITZ_API_KEY", "")
 AIARK_KEY = os.environ.get("AIARK_API_KEY", "")
+# Legacy paid providers are OFF unless --legacy-providers is passed (see main()).
+if "--legacy-providers" not in sys.argv:
+    MV_KEY = ICYPEAS_KEY = ICYPEAS_SECRET = BLITZ_KEY = AIARK_KEY = ""
 
 
 # ============================================================================
@@ -850,7 +862,20 @@ def main():
                          "campaigns need {{first_name}} merge, so role-accounts are skipped. "
                          "Matches forge.py's --allow-nameless polarity. Set for privacy-heavy "
                          "niches (cannabis, healthcare) where generic emails are acceptable.")
+    ap.add_argument("--legacy-providers", action="store_true",
+                    help="use the old Blitz/AI Ark/Icypeas/MillionVerifier cascade (off by default)")
+    ap.add_argument("--icp", default="", help="ICP description for the fit gate (defaults to --niche)")
+    ap.add_argument("--budget", type=float, default=0.50, help="per-run treg budget cap in USD (default 0.50)")
+    ap.add_argument("--per-call-cap", type=float, default=0.02, help="per-call treg price cap in USD (default 0.02)")
+    ap.add_argument("--fit-skip-below", type=float, default=0.2,
+                    help="skip a company only when fit probability is below this (default 0.2)")
+    ap.add_argument("--fit-threshold", type=float, default=0.5,
+                    help="fit probability below this (but >= skip-below) is tagged fit_borderline")
+    ap.add_argument("--no-fit-gate", action="store_true", help="disable the fit gate")
+    ap.add_argument("--no-dedup", action="store_true", help="skip master-DB dedup (e.g. fresh box without DB)")
     args = ap.parse_args()
+    if not args.legacy_providers:
+        return main_treg(args)
 
     # Route light classification/extraction through llm_router.
     # Kimi K2.6 handles these tasks (owner extraction, niche-fit) at 8x cheaper
@@ -1143,6 +1168,109 @@ def main():
         print(f"\n  analytics logged to enrichment_analytics table")
     except Exception:
         pass
+
+
+def _light_llm_or_none():
+    if not (os.environ.get("KIMI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
+        return None
+    try:
+        sys.path.insert(0, ROOT_DIR)
+        from llm_router import get_light_client
+        return get_light_client()
+    except Exception:
+        return None
+
+
+def main_treg(args):
+    """Default cascade: fit gate + free steps + treg. Writes results.csv with cost/provider per lead."""
+    sys.path.insert(0, SCRIPT_DIR)
+    from forge_treg_cascade import enrich_company_treg, ensure_schema
+    from treg_client import TregClient
+    from enrich_smart_route import batch_mx_check_simple
+
+    icp = args.icp or args.niche
+    companies = list(csv.DictReader(open(args.input)))
+    if args.limit:
+        companies = companies[:args.limit]
+    for co in companies:
+        if not co.get("domain") and co.get("website"):
+            co["domain"] = co["website"].replace("https://", "").replace("http://", "").replace("www.", "").split("/")[0].lower()
+        co["domain"] = (co.get("domain") or "").strip().lower()
+
+    known_emails = set()
+    if not args.no_dedup:
+        try:
+            from dedup_before_enrich import get_known_domains, get_known_emails
+            kd = get_known_domains(); known_emails = get_known_emails()
+            before = len(companies)
+            companies = [c for c in companies if c["domain"] not in kd]
+            print(f"  dedup: {before - len(companies)} already in master DB")
+        except Exception as e:
+            print(f"  dedup skipped ({type(e).__name__}); use --no-dedup to silence")
+
+    tc = TregClient(budget_usd=args.budget, per_call_cap_usd=args.per_call_cap, dry_run=args.dry_run)
+    print("=" * 60)
+    print("  THE FORGE — fit gate + free + treg cascade")
+    print("=" * 60)
+    print(f"  companies: {len(companies)}  icp: {icp or '(none: fit gate off)'}")
+    print(f"  budget: ${args.budget:.2f}  per-call cap: ${args.per_call_cap:.3f}  "
+          f"fit skip<{args.fit_skip_below} borderline<{args.fit_threshold}")
+    print(f"  treg token: {'present' if tc.available else 'MISSING (set TREG_TOKEN or /home/box/.secrets/treg_token)'}")
+    print(f"  fit gate judge: {'set (env FIT_GATE_MODEL)' if os.environ.get('FIT_GATE_MODEL') else 'FIT_GATE_MODEL unset -> llm_classify fallback or no gate'}")
+
+    domains = [c["domain"] for c in companies if c["domain"]]
+    mx = batch_mx_check_simple(domains)
+    if args.dry_run:
+        from collections import Counter
+        print(f"  MX: {dict(Counter(mx.values()))}")
+        est_lo = len(companies) * 0.00002
+        est_hi = len(companies) * (0.00002 + 0.0002 + 0.0004 * 3 + 0.01)
+        print(f"  est. treg spend: ${est_lo:.4f} (all skipped) .. ${min(est_hi, args.budget):.4f} (worst case, budget-capped)")
+        for c in companies:
+            print(f"    plan: {c.get('company','')[:40]:<40} {c['domain']:<32} mx={mx.get(c['domain'],'-')}")
+        print("  [DRY RUN] no treg calls made.")
+        return
+
+    ensure_schema(DB_PATH)
+    light = _light_llm_or_none()
+    opts = {"fit_skip_below": args.fit_skip_below, "fit_threshold": args.fit_threshold,
+            "no_fit_gate": args.no_fit_gate, "allow_nameless": args.allow_nameless}
+    serper_fn = None
+    results = []
+    for i, co in enumerate(companies, 1):
+        if SERPER_KEY and light:
+            serper_fn = (lambda co=co: find_owner_google(co.get("company", ""), co.get("city", ""),
+                         co.get("state", ""), co["domain"], light[0]))
+        r = enrich_company_treg(tc, DB_PATH, co, mx.get(co["domain"], "unknown"), icp, opts, known_emails,
+                                light_llm=light, serper_owner_fn=serper_fn,
+                                get_domain_memory=get_domain_memory, update_domain_memory=update_domain_memory)
+        r["tags"] = ",".join(r["tags"])
+        results.append(r)
+        if r.get("email"):
+            known_emails.add(r["email"])
+        jp = "-" if r["fit_p"] is None else f"{r['fit_p']:.2f}"
+        print(f"  [{i}/{len(companies)}] {r['company'][:34]:<34} fit={jp:<5} {r['bucket']:<12} "
+              f"src={r['source'] or '-'} ${r['cost_usd']:.4f} {r['tags']}", flush=True)
+        if r["bucket"] == "budget_stop":
+            print("  budget cap reached, stopping.")
+            break
+
+    outdir = args.output_dir or os.path.join(ROOT_DIR, "output", f"forge-treg-{datetime.now().strftime('%Y%m%d_%H%M')}")
+    os.makedirs(outdir, exist_ok=True)
+    fields = ["company", "domain", "city", "state", "phone", "fit_p", "fit_judge", "tags", "bucket", "email",
+              "first_name", "last_name", "title", "source", "verify_status", "cost_usd", "providers"]
+    with open(os.path.join(outdir, "results.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore"); w.writeheader(); w.writerows(results)
+    with open(os.path.join(outdir, "ledger.json"), "w") as f:
+        json.dump(tc.ledger, f, indent=1)
+    from collections import Counter
+    b = Counter(r["bucket"] for r in results)
+    nv = b.get("verified", 0)
+    print("=" * 60)
+    print(f"  buckets: {dict(b)}")
+    print(f"  treg spent: ${tc.spent:.4f} of ${args.budget:.2f}"
+          f"  | cost per verified: {('$%.4f' % (tc.spent / nv)) if nv else 'n/a'}")
+    print(f"  output: {outdir}")
 
 
 if __name__ == "__main__":
