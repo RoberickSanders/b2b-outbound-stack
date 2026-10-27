@@ -87,7 +87,7 @@ CLIENT_IDENTITIES = {
     "client_a": {
         "name_keywords": ["ClientA", "CLIENT_A "],
         "display_name": "ClientA",
-        "sender_persona": "Sender One (owner). Denver commercial fire protection since 2009. NICET-certified. Practical, operator-speak. Signs with 'Sender One, ClientA'. Never fluffy.",
+        "sender_persona": "Sender One (owner). Example commercial services company. Practical, operator-speak. Signs with 'Sender One, ClientA'. Never fluffy.",
     },
     "client_b": {
         "name_keywords": ["ClientB"],

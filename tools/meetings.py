@@ -6,13 +6,13 @@ Finally answers: "which niche/campaign actually makes money?"
 
 Usage:
     # Log a meeting
-    python3 tools/meetings.py log --email shannon@alliedfireprotection.com --client client_c --niche fire-protection --date 2026-04-15
+    python3 tools/meetings.py log --email jane@example.com --client client_c --niche fire-protection --date 2026-04-15
 
     # Log a closed deal
-    python3 tools/meetings.py close --email shannon@alliedfireprotection.com --value 2500 --monthly 2500
+    python3 tools/meetings.py close --email jane@example.com --value 2500 --monthly 2500
 
     # Update meeting status
-    python3 tools/meetings.py update --email shannon@alliedfireprotection.com --outcome proposal_sent
+    python3 tools/meetings.py update --email jane@example.com --outcome proposal_sent
 
     # View pipeline
     python3 tools/meetings.py pipeline
