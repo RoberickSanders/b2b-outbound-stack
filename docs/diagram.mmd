@@ -1,0 +1,13 @@
+flowchart TD
+  A["Campaign brief in plain English<br/>client, niche, target, location"] --> B["Find target companies<br/>keyword search, lookalikes,<br/>directories, Google Maps"]
+  B --> C["Remove duplicates<br/>against the master lead database"]
+  C --> D["Find the decision-maker's email<br/>13-step cascade, free sources first"]
+  D --> E["Verify every email<br/>drop likely bounces"]
+  E --> F["Quality filter<br/>AI niche-fit + job-title check"]
+  F --> G["AI writes the cold emails"]
+  G --> H{"18-point copy check<br/>+ offer scorecard"}
+  H -- "Fail" --> G
+  H -- "Pass" --> I["Draft campaign in Smartlead<br/>only warmed-up mailboxes attached"]
+  I --> J["Human reviews<br/>and clicks Start"]
+  J --> K["Learn from results<br/>which industries and titles booked meetings"]
+  K -.-> A

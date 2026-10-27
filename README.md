@@ -4,6 +4,14 @@ Open-source framework for production-grade B2B outbound operations. Built and op
 
 > **Status:** runs in production. Public version is sanitized of client data, copy banks, and proprietary patterns. The framework + architecture are open-sourced as a portfolio artifact.
 
+## How it works
+
+![B2B outbound stack architecture](docs/diagram.png)
+
+This is the cold-email pipeline I built and run. One plain-English brief goes in. It finds companies, removes duplicates, and fills in contact emails through a 13-step lookup that tries free sources before paid ones. It then verifies the emails and has AI write the copy. Every email has to pass an 18-point quality check before it can join a Smartlead campaign, and that campaign is only saved as a draft and can only use warmed-up mailboxes. A person launches it, and each campaign's results feed into the next one.
+
+Diagram source: [theme-aware SVG](docs/diagram.svg), [flat SVG](docs/diagram.flat.svg), [Mermaid](docs/diagram.mmd).
+
 ## What this is
 
 A complete operational stack for B2B outbound — discovery → enrichment → verification → copy generation → DRAFTED Smartlead campaign — with multi-tenant data isolation, safety rules codified in code, and an LLM cost router.
@@ -229,22 +237,22 @@ flowchart TB
     subgraph DROPLET_INTERNALS[On the droplet]
         FORGE[Forge — Python 3.13]
         SYSTEMD[systemd timers<br/>autopilot daily<br/>client_reports weekly]
-        HERMES[Hermes Agent<br/>Telegram bot gateway]
+        AGENT[Agent runtime<br/>Telegram bot gateway]
         DBLOCAL[(master_leads.db<br/>WAL mode)]
     end
 
     PHONE --> TS
     MAC --> TS
     TS --> DROPLET
-    HERMES <-->|natural-language ops| PHONE
+    AGENT <-->|natural-language ops| PHONE
     FORGE <--> SERVICES
     SYSTEMD --> FORGE
-    HERMES --> FORGE
+    AGENT --> FORGE
     FORGE <--> DBLOCAL
     SYSTEMD -.->|alerts| PUSH
 
     style DROPLET fill:#0d1117,color:#fff,stroke:#58a6ff
-    style HERMES fill:#1a472a,color:#fff,stroke:#3fb950
+    style AGENT fill:#1a472a,color:#fff,stroke:#3fb950
     style PHONE fill:#3a2c0f,color:#fff,stroke:#d29922
 ```
 
@@ -258,7 +266,7 @@ flowchart TB
 - **Enrichment:** Hunter, Icypeas, MillionVerifier
 - **Subagents:** Claude Code Task tool
 - **Deploy:** DigitalOcean droplet + systemd timers + Tailscale
-- **Conversational layer:** Hermes Agent for Telegram-bot ops
+- **Conversational layer:** agent runtime for Telegram-bot ops
 
 ## See it in action
 
@@ -274,7 +282,8 @@ Concrete walkthroughs of the framework's key mechanisms (synthetic data, real ar
 agency-os/
 ├── README.md                            (this file)
 ├── CLAUDE.md                            operating doctrine
-├── HERMES.md                            Hermes Agent integration bridge
+├── AGENT-BRIDGE.md                      agent runtime bridge to the Forge CLI
+├── docs/diagram.png                     pipeline diagram (also .svg and .mmd)
 ├── COOKBOOK.md                          goal-oriented "I want to ___, run this"
 ├── SOP.md                               operational policies
 ├── WORKFLOW.md                          end-to-end campaign workflow

@@ -1745,7 +1745,7 @@ HUMANIZER RULES (hard rule — under 10% AI slop or copy gets rejected):
 - NO filler phrases: "At its core", "It is important to note", "Moving forward"
 - Vary sentence rhythms — mix short and longer sentences, don't make every email the same structure
 - Every email must contain at least ONE concrete specific (a real number, a real phrase the buyer would actually use, a real scenario)
-- Write like a real operator at a coffee shop, not a polished SDR template
+- Write like a real operator at a coffee shop, not a polished outbound template
 """
 
     max_attempts = 3
@@ -1819,7 +1819,7 @@ REWRITE RULES:
 - Vary sentence rhythm (short, then longer)
 - Keep one concrete specific per email (real number, real phrase a buyer would actually say)
 - Use "I" naturally if it fits, not forced
-- Sound like a real operator typed this at a coffee shop, not an SDR template
+- Sound like a real operator typed this at a coffee shop, not an outbound template
 
 Return ONLY the rewritten sequence. Same format as the original. No preamble, no explanation."""
 

@@ -1,13 +1,13 @@
-# Hermes ↔ Forge bridge — read first
+# Agent runtime bridge — read first
 
-You are Hermes running on the operator's ClientC agency server. The user
+You are the agent runtime on the operator's agency server. The user
 operates a system called **Forge** via the `f` command. When the user sends
 a message starting with `f` (lowercase, single letter) followed by a
 subcommand, that's an instruction to run the Forge dispatcher.
 
 ## CRITICAL — disambiguation
 
-`f health` does NOT mean "hermes doctor" or "hermes health".
+`f health` does NOT mean the agent runtime's own doctor or health check.
 `f health` means: **run `/usr/local/bin/f health` via bash and return the output verbatim**.
 
 You have a `bash` / `terminal` / `shell` tool. **USE IT** for any `f <subcommand>` request.
@@ -18,8 +18,8 @@ You have a `bash` / `terminal` / `shell` tool. **USE IT** for any `f <subcommand
 /usr/local/bin/f <full subcommand and args>
 ```
 
-Do NOT substitute with `hermes doctor`, `hermes config show`, `hermes status`,
-or any built-in Hermes command. Forge's `f` is a separate program at
+Do NOT substitute the agent runtime's doctor, config, or status commands,
+or any other built-in agent-runtime command. Forge's `f` is a separate program at
 `/usr/local/bin/f` that dispatches to scripts in
 `/opt/forge/Claude Workspace/02-Areas/lead-pipeline/`.
 
