@@ -131,7 +131,7 @@ OWNER_ROLES = [
 
 EXCLUDED_TITLES = [
     "assistant", "executive assistant", "admin", "administrator",
-    "coordinator", "sdr", "bdr", "sales development",
+    "coordinator", "bdr", "sales development",
     "business development representative",
     "recruiter", "talent", "intern", "associate",
     "nurse", "nursing", "clinical", "medical director", "physician",

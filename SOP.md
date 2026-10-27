@@ -531,7 +531,7 @@ It:
 ### Step 7 — When a meeting is booked, prep the call
 
 ```bash
-python3 tools/meeting_prep.py --email bjankowski@pmgdevelop.com
+python3 tools/meeting_prep.py --email jane@example.com
 ```
 
 Outputs a 1-page markdown brief: company summary, what they said in thread, likely pain points, 3 opening questions, 1 thing NOT to do. 30-second read, materially better call outcomes.

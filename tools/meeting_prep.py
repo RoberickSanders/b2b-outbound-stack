@@ -14,7 +14,7 @@ Why this exists:
   (company intel) + Kimi (synthesis).
 
 Usage:
-  python3 tools/meeting_prep.py --email bjankowski@pmgdevelop.com
+  python3 tools/meeting_prep.py --email jane@example.com
   python3 tools/meeting_prep.py --email X --out prep.md
   python3 tools/meeting_prep.py --lead-id 3588388312
 
