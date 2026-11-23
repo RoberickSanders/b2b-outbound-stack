@@ -1,0 +1,10 @@
+# Runtime dependencies (from the actual imports in this repo)
+requests>=2.28.0
+anthropic>=0.25.0
+beautifulsoup4>=4.12.0
+python-dotenv>=1.0.0
+dnspython>=2.4.0        # tools/enrich_smart_route.py MX lookups
+urllib3>=1.26.0         # lead_pipeline_v6.py retry adapter
+
+# Optional: only lead.py's browser-based discovery path needs this.
+# pip install playwright && playwright install chromium

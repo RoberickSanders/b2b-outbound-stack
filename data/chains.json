@@ -1,0 +1,32 @@
+{
+ "chain_keywords": [
+  "starbucks",
+  "mcdonald",
+  "walmart",
+  "target",
+  "home depot",
+  "lowe's",
+  "cvs",
+  "walgreens",
+  "marriott",
+  "hilton",
+  "subway",
+  "7-eleven"
+ ],
+ "junk_domains": [
+  "facebook.com",
+  "yelp.com",
+  "linkedin.com",
+  "instagram.com",
+  "twitter.com",
+  "x.com",
+  "yellowpages.com",
+  "bbb.org",
+  "google.com",
+  "mapquest.com",
+  "tripadvisor.com",
+  "angi.com",
+  "thumbtack.com",
+  "nextdoor.com"
+ ]
+}

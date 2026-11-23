@@ -1,0 +1,37 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*_API_KEY*
+*_TOKEN*
+
+# Local DB + caches
+master-leads/
+master_leads.db*
+*.db
+*.db-wal
+*.db-shm
+_*cache*.json
+v2_pipeline_cache.json
+.firecrawl/
+__pycache__/
+*.pyc
+
+# Runtime artifacts
+auto-research-runs/
+competitor-engagers/
+list-scorecards/
+lookalike-runs/
+winning-angles/
+reattach-pending/
+_master/
+logs/
+output/
+
+# Real CSV data — never commit lead lists
+*.csv
+!fixtures/*.csv
+
+# OS
+.DS_Store
+Thumbs.db

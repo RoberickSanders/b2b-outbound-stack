@@ -1,0 +1,171 @@
+{
+ "coords": {
+  "new york": [
+   40.7128,
+   -74.006
+  ],
+  "los angeles": [
+   34.0522,
+   -118.2437
+  ],
+  "chicago": [
+   41.8781,
+   -87.6298
+  ],
+  "houston": [
+   29.7604,
+   -95.3698
+  ],
+  "phoenix": [
+   33.4484,
+   -112.074
+  ],
+  "philadelphia": [
+   39.9526,
+   -75.1652
+  ],
+  "san antonio": [
+   29.4241,
+   -98.4936
+  ],
+  "san diego": [
+   32.7157,
+   -117.1611
+  ],
+  "dallas": [
+   32.7767,
+   -96.797
+  ],
+  "austin": [
+   30.2672,
+   -97.7431
+  ],
+  "jacksonville": [
+   30.3322,
+   -81.6557
+  ],
+  "fort worth": [
+   32.7555,
+   -97.3308
+  ],
+  "columbus": [
+   39.9612,
+   -82.9988
+  ],
+  "charlotte": [
+   35.2271,
+   -80.8431
+  ],
+  "indianapolis": [
+   39.7684,
+   -86.1581
+  ],
+  "san francisco": [
+   37.7749,
+   -122.4194
+  ],
+  "seattle": [
+   47.6062,
+   -122.3321
+  ],
+  "denver": [
+   39.7392,
+   -104.9903
+  ],
+  "nashville": [
+   36.1627,
+   -86.7816
+  ],
+  "washington": [
+   38.9072,
+   -77.0369
+  ],
+  "boston": [
+   42.3601,
+   -71.0589
+  ],
+  "las vegas": [
+   36.1699,
+   -115.1398
+  ],
+  "portland": [
+   45.5152,
+   -122.6784
+  ],
+  "atlanta": [
+   33.749,
+   -84.388
+  ],
+  "miami": [
+   25.7617,
+   -80.1918
+  ],
+  "tampa": [
+   27.9506,
+   -82.4572
+  ],
+  "orlando": [
+   28.5383,
+   -81.3792
+  ],
+  "minneapolis": [
+   44.9778,
+   -93.265
+  ],
+  "kansas city": [
+   39.0997,
+   -94.5786
+  ],
+  "raleigh": [
+   35.7796,
+   -78.6382
+  ]
+ },
+ "presets": {
+  "us_top_30": [
+   "new york",
+   "los angeles",
+   "chicago",
+   "houston",
+   "phoenix",
+   "philadelphia",
+   "san antonio",
+   "san diego",
+   "dallas",
+   "austin",
+   "jacksonville",
+   "fort worth",
+   "columbus",
+   "charlotte",
+   "indianapolis",
+   "san francisco",
+   "seattle",
+   "denver",
+   "nashville",
+   "washington",
+   "boston",
+   "las vegas",
+   "portland",
+   "atlanta",
+   "miami",
+   "tampa",
+   "orlando",
+   "minneapolis",
+   "kansas city",
+   "raleigh"
+  ],
+  "florida": [
+   "tampa",
+   "orlando",
+   "miami",
+   "jacksonville"
+  ],
+  "texas": [
+   "houston",
+   "san antonio",
+   "dallas",
+   "austin",
+   "fort worth"
+  ]
+ }
+}
