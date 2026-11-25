@@ -141,6 +141,17 @@ def batch_mx_check(domains, workers=20):
     return results
 
 
+def _mx_doh(domain):
+    """MX lookup over DNS-over-HTTPS (used when `dig` is unavailable; some sandboxes'
+    local resolvers drop MX answers)."""
+    import requests
+    try:
+        r = requests.get("https://dns.google/resolve", params={"name": domain, "type": "MX"}, timeout=6)
+        return " ".join(a.get("data", "") for a in r.json().get("Answer", []) if a.get("type") == 15).lower()
+    except Exception:
+        return ""
+
+
 def batch_mx_check_simple(domains):
     """Simpler MX check without dnspython — uses socket."""
     import subprocess
@@ -149,9 +160,13 @@ def batch_mx_check_simple(domains):
     for domain in domains:
         try:
             # Use dig or nslookup via subprocess
-            r = subprocess.run(['dig', '+short', 'MX', domain],
-                             capture_output=True, text=True, timeout=5)
-            mx_text = r.stdout.lower()
+            try:
+                r = subprocess.run(['dig', '+short', 'MX', domain],
+                                 capture_output=True, text=True, timeout=5)
+                mx_text = r.stdout.lower()
+            except FileNotFoundError:
+                # `dig` missing (e.g. fresh box): fall back to dnspython instead of 'unknown'
+                mx_text = _mx_doh(domain)
             if not mx_text.strip():
                 results[domain] = 'none'
             elif 'google' in mx_text or 'gmail' in mx_text:
